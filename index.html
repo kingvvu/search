@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>찜질방 목록</title>
+  <style>
+    :root {
+      --bg: #f7f7f9;
+      --card: #ffffff;
+      --line: #e5e7eb;
+      --text: #1f2328;
+      --muted: #6b7280;
+      --accent: #2f6feb;
+      --accent-soft: #e8f0ff;
+      --danger-soft: #fff1f0;
+      --up-soft: #e7f8ec;
+      --down-soft: #fff1f0;
+      --down: #c0392b;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+      "Malgun Gothic", "Noto Sans KR", Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+
+    /* 상단 탭 */
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      background: var(--card);
+      border-bottom: 1px solid var(--line);
+      padding: 6px 8px;
+      gap: 6px;
+    }
+
+    .tab {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 600;
+      padding: 10px 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .tab.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    /* 콘텐츠 */
+    .content {
+      flex: 1;
+      padding: 12px 10px 40px;
+    }
+
+    .summary {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 2px 4px 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    thead th {
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      background: #fafafa;
+      padding: 10px 6px;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 12px 6px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      font-size: 14px;
+      word-break: keep-all;
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    /* 열 너비 */
+    .col-name { width: 28%; font-weight: 600; }
+    .col-addr { width: 38%; color: #374151; }
+    .col-note { width: 16%; text-align: center; }
+    .col-vote { width: 18%; text-align: center; }
+
+    /* 상호/주소 공통 레이아웃 */
+    .cell-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .cell-text {
+      flex: 1;
+      min-width: 0;
+      word-break: keep-all;
+    }
+
+    .cell-text.muted { color: #9ca3af; }
+
+    .copy-btn {
+      flex: 0 0 auto;
+      border: none;
+      background: #f1f3f5;
+      border-radius: 8px;
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #4b5563;
+      transition: background 0.15s, color 0.15s, opacity 0.15s;
+    }
+
+    .copy-btn:active { background: var(--accent-soft); color: var(--accent); }
+    .copy-btn.copied { background: #e7f8ec; color: #1a7f37; }
+    .copy-btn svg { width: 15px; height: 15px; }
+
+    .copy-btn.disabled {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .note-btn {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 6px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .note-btn.on {
+      background: var(--danger-soft);
+      color: var(--down);
+      border-color: #f5c6c0;
+    }
+
+    /* 비고(취소선) 상태 */
+    tr.marked .col-name .cell-text,
+    tr.marked .col-addr .cell-text {
+      text-decoration: line-through;
+      color: #9ca3af;
+    }
+
+    /* 투표 버튼 그룹 */
+    .vote-group {
+      display: inline-flex;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .vote-btn {
+      border: 1px solid var(--line);
+      background: var(--card);
+      border-radius: 8px;
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .vote-btn:active { transform: scale(0.92); }
+
+    .vote-btn.up.on {
+      background: var(--up-soft);
+      border-color: #b7e4c7;
+    }
+
+    .vote-btn.down.on {
+      background: var(--down-soft);
+      border-color: #f5c6c0;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 40px 10px;
+      font-size: 14px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(31,35,40,0.92);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 100;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-region="인천">인천</button>
+    <button class="tab" data-region="경기">경기</button>
+    <button class="tab" data-region="서울">서울</button>
+  </nav>
+
+  <main class="content">
+    <div class="summary" id="summary"></div>
+    <table>
+      <thead>
+      <tr>
+        <th class="col-name">상호</th>
+        <th class="col-addr">주소</th>
+        <th class="col-note">비고</th>
+        <th class="col-vote">평가</th>
+      </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </main>
+</div>
+
+<div class="toast" id="toast">복사됨</div>
+
+<script>
+  // ===== localStorage 키 =====
+  const LS_MARKED = "jjimjilbang_marks_v1";
+  const LS_VOTES  = "jjimjilbang_votes_v1";
+
+  function loadSet(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch (e) { return new Set(); }
+  }
+  function loadMap(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+  function saveSet(key, set) {
+    try { localStorage.setItem(key, JSON.stringify([...set])); } catch (e) {}
+  }
+  function saveMap(key, map) {
+    try { localStorage.setItem(key, JSON.stringify(map)); } catch (e) {}
+  }
+
+  // ===== 상태 =====
+  let currentRegion = "인천";
+  let DATA = { "인천": [], "경기": [], "서울": [] };
+
+  const marked = loadSet(LS_MARKED);
+  const votes = loadMap(LS_VOTES);
+
+  function itemKey(region, item) {
+    return `${region}::${item["상호"]}::${item["주소"] || ""}`;
+  }
+
+  // ===== 데이터 로드 =====
+  async function loadData() {
+    try {
+      const res = await fetch("./data.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("data.json 로드 실패: " + res.status);
+      const raw = await res.json();
+
+      if (Array.isArray(raw)) {
+        const grouped = { "인천": [], "경기": [], "서울": [] };
+        raw.forEach((item) => {
+          const addr = item["주소"] || "";
+          if (addr.includes("인천")) grouped["인천"].push(item);
+          else if (addr.includes("경기")) grouped["경기"].push(item);
+          else if (addr.includes("서울")) grouped["서울"].push(item);
+        });
+        DATA = grouped;
+      } else {
+        DATA = {
+          "인천": raw["인천"] || [],
+          "경기": raw["경기"] || [],
+          "서울": raw["서울"] || [],
+        };
+      }
+    } catch (e) {
+      console.error(e);
+      DATA = { "인천": [], "경기": [], "서울": [] };
+    }
+    render();
+  }
+
+  // ===== 복사 버튼 생성 헬퍼 =====
+  function createCopyBtn(text, label) {
+    const btn = document.createElement("button");
+    btn.className = "copy-btn";
+    btn.type = "button";
+    btn.setAttribute("aria-label", label);
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+        <path d="M5 15V5a2 2 0 0 1 2-2h10"></path>
+      </svg>`;
+
+    if (!text) {
+      // 복사할 텍스트가 없으면 비활성화
+      btn.classList.add("disabled");
+      btn.disabled = true;
+      return btn;
+    }
+
+    btn.addEventListener("click", async () => {
+      const ok = await copyToClipboard(text);
+      if (ok) {
+        btn.classList.add("copied");
+        showToast(`${label} 복사되었습니다`);
+        setTimeout(() => btn.classList.remove("copied"), 900);
+      } else {
+        showToast("복사 실패");
+      }
+    });
+
+    return btn;
+  }
+
+  // ===== 렌더 =====
+  function render() {
+    const tbody = document.getElementById("tbody");
+    const summary = document.getElementById("summary");
+    const list = DATA[currentRegion] || [];
+
+    tbody.innerHTML = "";
+
+    if (!list.length) {
+      summary.textContent = "";
+      tbody.innerHTML = `<tr><td colspan="4"><div class="empty">표시할 데이터가 없습니다.</div></td></tr>`;
+      return;
+    }
+
+    summary.textContent = `${currentRegion} · 총 ${list.length}곳`;
+
+    const frag = document.createDocumentFragment();
+    list.forEach((item) => {
+      const name = item["상호"] || "-";
+      const addr = item["주소"] || "";
+      const key = itemKey(currentRegion, item);
+
+      const tr = document.createElement("tr");
+      tr.dataset.key = key;
+      if (marked.has(key)) tr.classList.add("marked");
+
+      // ===== 상호 + 복사 =====
+      const tdName = document.createElement("td");
+      tdName.className = "col-name";
+      const nameWrap = document.createElement("div");
+      nameWrap.className = "cell-wrap";
+
+      const spanName = document.createElement("span");
+      spanName.className = "cell-text";
+      spanName.textContent = name;
+
+      const nameCopy = createCopyBtn(item["상호"] || "", "상호가");
+
+      nameWrap.appendChild(spanName);
+      nameWrap.appendChild(nameCopy);
+      tdName.appendChild(nameWrap);
+
+      // ===== 주소 + 복사 =====
+      const tdAddr = document.createElement("td");
+      tdAddr.className = "col-addr";
+      const addrWrap = document.createElement("div");
+      addrWrap.className = "cell-wrap";
+
+      const spanAddr = document.createElement("span");
+      spanAddr.className = "cell-text" + (addr ? "" : " muted");
+      spanAddr.textContent = addr || "주소 없음";
+
+      const addrCopy = createCopyBtn(addr, "주소가");
+
+      addrWrap.appendChild(spanAddr);
+      addrWrap.appendChild(addrCopy);
+      tdAddr.appendChild(addrWrap);
+
+      // ===== 비고 (취소선) =====
+      const tdNote = document.createElement("td");
+      tdNote.className = "col-note";
+      const noteBtn = document.createElement("button");
+      noteBtn.className = "note-btn";
+      noteBtn.type = "button";
+      const isMarked = marked.has(key);
+      noteBtn.textContent = isMarked ? "취소" : "완료";
+      if (isMarked) noteBtn.classList.add("on");
+
+      noteBtn.addEventListener("click", () => {
+        if (marked.has(key)) {
+          marked.delete(key);
+          tr.classList.remove("marked");
+          noteBtn.classList.remove("on");
+          noteBtn.textContent = "완료";
+        } else {
+          marked.add(key);
+          tr.classList.add("marked");
+          noteBtn.classList.add("on");
+          noteBtn.textContent = "취소";
+        }
+        saveSet(LS_MARKED, marked);
+      });
+      tdNote.appendChild(noteBtn);
+
+      // ===== 평가 👍/👎 =====
+      const tdVote = document.createElement("td");
+      tdVote.className = "col-vote";
+      const voteGroup = document.createElement("div");
+      voteGroup.className = "vote-group";
+
+      const upBtn = document.createElement("button");
+      upBtn.className = "vote-btn up";
+      upBtn.type = "button";
+      upBtn.setAttribute("aria-label", "좋아요");
+      upBtn.textContent = "👍";
+
+      const downBtn = document.createElement("button");
+      downBtn.className = "vote-btn down";
+      downBtn.type = "button";
+      downBtn.setAttribute("aria-label", "싫어요");
+      downBtn.textContent = "👎";
+
+      if (votes[key] === "up") upBtn.classList.add("on");
+      if (votes[key] === "down") downBtn.classList.add("on");
+
+      function applyVote(newVote) {
+        if (votes[key] === newVote) {
+          delete votes[key];
+        } else {
+          votes[key] = newVote;
+        }
+        upBtn.classList.toggle("on", votes[key] === "up");
+        downBtn.classList.toggle("on", votes[key] === "down");
+        saveMap(LS_VOTES, votes);
+      }
+
+      upBtn.addEventListener("click", () => applyVote("up"));
+      downBtn.addEventListener("click", () => applyVote("down"));
+
+      voteGroup.appendChild(upBtn);
+      voteGroup.appendChild(downBtn);
+      tdVote.appendChild(voteGroup);
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdAddr);
+      tr.appendChild(tdNote);
+      tr.appendChild(tdVote);
+      frag.appendChild(tr);
+    });
+
+    tbody.appendChild(frag);
+  }
+
+  // ===== 클립보드 =====
+  async function copyToClipboard(text) {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (e) {}
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ===== 토스트 =====
+  let toastTimer = null;
+  function showToast(msg) {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 1400);
+  }
+
+  // ===== 탭 =====
+  document.getElementById("tabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab");
+    if (!btn) return;
+    const region = btn.dataset.region;
+    if (region === currentRegion) return;
+    currentRegion = region;
+    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === btn));
+    render();
+  });
+
+  // 시작
+  loadData();
+</script>
+</body>
+</html>
